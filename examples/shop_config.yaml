@@ -1,0 +1,41 @@
+# Three related tables of a small online shop, with planted problems a data contract should catch.
+#   messydata generate examples/shop_config.yaml --start-date 2026-08-04 --end-date 2026-11-01 \
+#     --rows 60 --output shop/
+# In date-range mode --rows is orders per day; customers (no date field) gets 60 rows in total,
+# so pass a larger --rows or use MultiPipeline.run_date_range with a dict to size each table.
+name: shop
+datasets:
+  - name: customers
+    primary_key: customer_id
+    records_per_primary_key: {type: uniform, min: 1, max: 1}
+    anomalies:
+      - {name: missing_values, count: 12, columns: [email]}   # exactly 12 customers lose their email
+    fields:
+      - {name: customer_id, dtype: int32, nullable: false, unique_per_id: true, distribution: {type: sequential, start: 1}}
+      - name: country
+        distribution: {type: weighted_choice, values: [NL, BE, DE, FR, PT], weights: [0.3, 0.2, 0.2, 0.2, 0.1]}
+      - name: email
+        distribution: {type: weighted_choice, values: [a@example.com, b@example.com, c@example.com], weights: [0.4, 0.3, 0.3]}
+
+  - name: orders
+    primary_key: order_id
+    records_per_primary_key: {type: uniform, min: 1, max: 1}
+    anomalies:
+      - {name: duplicate_values, count: 7}                    # 7 orders loaded twice
+      - {name: volume_drop, date: "2026-10-30", keep: 0.4}    # a day a volume monitor should flag
+    fields:
+      - {name: order_id, dtype: int32, nullable: false, unique_per_id: true, distribution: {type: sequential, start: 1001}}
+      - {name: customer_id, nullable: false, distribution: {type: reference, dataset: customers, column: customer_id}}
+      - {name: ordered_at, nullable: false, temporal: true, distribution: {type: sequential, start: "2026-08-04"}}
+      - {name: amount, dtype: float64, nullable: false, distribution: {type: lognormal, mu: 3.5, sigma: 0.6}}
+
+  - name: payments
+    primary_key: payment_id
+    records_per_primary_key: {type: uniform, min: 1, max: 1}
+    anomalies:
+      - {name: broken_reference, count: 4, columns: [order_id]}  # 4 payments for orders that do not exist
+    fields:
+      - {name: payment_id, dtype: int32, nullable: false, unique_per_id: true, distribution: {type: sequential, start: 1}}
+      - {name: order_id, nullable: false, distribution: {type: reference, dataset: orders, column: order_id}}
+      - name: method
+        distribution: {type: weighted_choice, values: [card, ideal, paypal], weights: [0.5, 0.3, 0.2]}

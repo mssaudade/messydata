@@ -7,17 +7,21 @@ from .distributions import (
     Lognormal,
     Mixture,
     Normal,
+    Reference,
     Sequential,
     Uniform,
     Weibull,
     WeightedChoice,
     WeightedChoiceMapping,
 )
-from .pipeline import Pipeline
-from .schema import AnomalySpec, DatasetSchema, FieldSpec
+from .pipeline import MultiPipeline, Pipeline
+from .schema import AnomalySpec, DatasetSchema, FieldSpec, MultiDatasetSchema
 
 __all__ = [
     "Pipeline",
+    "MultiPipeline",
+    "MultiDatasetSchema",
+    "Reference",
     "DatasetSchema",
     "FieldSpec",
     "AnomalySpec",

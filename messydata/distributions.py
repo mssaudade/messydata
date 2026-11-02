@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 from typing import Annotated, Literal, Union
 
 import numpy as np
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 
 class Uniform(BaseModel):
@@ -105,6 +105,32 @@ class WeightedChoiceMapping(BaseModel):
         return {col: [vals[i] for i in indexes] for col, vals in self.columns.items()}
 
 
+class Reference(BaseModel):
+    """Values drawn from a column of another dataset in the same config (a foreign key).
+
+    Only valid inside a multi-dataset config (``datasets:``); the parent dataset is generated
+    first and its column's values are bound here before sampling.
+    """
+
+    type: Literal["reference"] = "reference"
+    dataset: str
+    column: str
+    _values: list = PrivateAttr(default_factory=list)
+
+    def bind(self, values) -> "Reference":
+        bound = self.model_copy()
+        bound._values = list(values)
+        return bound
+
+    def sample(self, n: int) -> np.ndarray:
+        if not self._values:
+            raise ValueError(
+                f"reference to {self.dataset}.{self.column} is unbound: references need a "
+                "multi-dataset config (datasets:) that also defines that dataset"
+            )
+        return np.random.choice(np.array(self._values, dtype=object), size=n)
+
+
 class Sequential(BaseModel):
     """Auto-incrementing integer or date sequence."""
 
@@ -143,6 +169,7 @@ Distribution = Annotated[
         WeightedChoice,
         WeightedChoiceMapping,
         Sequential,
+        Reference,
     ],
     Field(discriminator="type"),
 ]

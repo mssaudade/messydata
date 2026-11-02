@@ -15,7 +15,10 @@ def generate_data(
     n_rows: int = 1000,
     seed: int = 42,
     date_override: Optional[date] = None,
+    seq_state: Optional[dict] = None,
 ) -> pd.DataFrame:
+    """seq_state, when given, carries sequential counters across calls (and is updated), so
+    ids keep counting across the days of a date range instead of restarting each day."""
     if seed is not None:
         np.random.seed(seed)
 
@@ -32,9 +35,10 @@ def generate_data(
         fields = schema.fields
 
     # Initialise sequential state for each sequential field
-    seq_state: dict[str, object] = {}
+    if seq_state is None:
+        seq_state = {}
     for field in fields:
-        if isinstance(field.distribution, Sequential):
+        if isinstance(field.distribution, Sequential) and field.name not in seq_state:
             seq_state[field.name] = field.distribution.initial()
 
     n_generated = 0
